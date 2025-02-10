@@ -17,17 +17,27 @@ prompt = st.text_area("Enter your prompt:", f"Write a {selected_language} functi
 @st.cache_resource
 def load_model():
     model_name = "deepseek-ai/deepseek-coder-1.3b-base"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        torch_dtype=torch.float16,
-        device_map="auto" if torch.cuda.is_available() else "cpu",
-    ).eval()  # Set model to evaluation mode for faster inference
     
-    if tokenizer.pad_token_id is None:
-        tokenizer.pad_token_id = tokenizer.eos_token_id
+    try:
+        from accelerate import dispatch_model  # Ensure accelerate is installed
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device_map="auto" if torch.cuda.is_available() else None,
+        )
+        
+        if tokenizer.pad_token_id is None:
+            tokenizer.pad_token_id = tokenizer.eos_token_id
+
+        return tokenizer, model.to(device)
     
-    return tokenizer, model
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None, None
+
 
 tokenizer, model = load_model()
 
